@@ -28,6 +28,17 @@ void* request_handle(void* arg)
     string response = c_response;
     response += "Request number: " + std::to_string(client->request_number) + '\n';
 
+    char buffer[128];
+    FILE* pipe = popen("php version.php", "r");
+    while(fgets(buffer, sizeof(buffer), pipe) != NULL)
+    {
+        response += buffer;
+    }
+
+    response += '\n';
+
+    pclose(pipe);
+
     write(client->client_fd, response.c_str(), response.size() * sizeof(char));
     
     shutdown(client->client_fd, SHUT_WR);
@@ -37,6 +48,7 @@ void* request_handle(void* arg)
 
 int main()
 {
+    int request_number = 1;
     int one = 1, client_fd;
     struct sockaddr_in svr_addr, cli_addr;
     socklen_t sin_len = sizeof(cli_addr);
@@ -44,7 +56,7 @@ int main()
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0)
     {
-        cerr << "can't open socket\n";
+        err(1, "can't open socket");
     }
 
     setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(int));
@@ -57,63 +69,38 @@ int main()
     if (bind(sock, (struct sockaddr *) &svr_addr, sizeof(svr_addr)) == -1)
     {
         close(sock);
-        cerr << "Can't bind\n";
-    }
-
-    pthread_attr_t attr;
-    int error;
-
-    error = pthread_attr_init(&attr);
-    // Если при инициализации переменной атрибутов произошла ошибка, выводим
-    // сообщение об ошибке и прекращаем работу программы
-    if(error != 0)
-    {
-        cerr << "Cannot create thread attribute: " << strerror(error) << endl;
-        exit(-1);
-    }
-
-    // Устанавливаем минимальный размер стека для потока (в байтах)
-    size_t stack_size = 512 * 1024;
-    error = pthread_attr_setstacksize(&attr, stack_size);
-    // Если при установке размера стека произошла ошибка, выводим
-    // сообщение об ошибке и прекращаем работу программы
-    if(error != 0)
-    {
-        cerr << "Setting stack size attribute failed: " << strerror(error) << endl;
-        exit(-1);
+        err(1, "Can't bind");
     }
 
     listen(sock, 5);
-    Client* client = NULL;
-
-    int request_number = 1;
-    
-    pthread_t thread;
+    Client* client;
 
     while (1)
     {
-        client_fd = accept(sock, (struct sockaddr *)&cli_addr, &sin_len);
-        cout << "got connection : " << request_number << '\n';
+        client_fd = accept(sock, (struct sockaddr *) &cli_addr, &sin_len);
+        cout << "got connection\n";
 
         if (client_fd == -1)
         {
-            cerr << "Can't accept\n";
+            cerr << "Can't accept";
             continue;
         }
 
+        pthread_t thread;
+        int err;
         client = new Client;
         client->request_number = request_number;
         client->client_fd = client_fd;
-
-        ++request_number;
-        
-        error = pthread_create(&thread, &attr, request_handle, (void*)client);
+        // Создаём поток
+        err = pthread_create(&thread, NULL, request_handle, (void*)client);
         // Если при создании потока произошла ошибка, выводим
         // сообщение об ошибке и прекращаем работу программы
-        if(error != 0)
+        if(err != 0)
         {
-            cerr << "Cannot create a thread: " << strerror(error) << '\n';
+            cout << "Cannot create a thread: " << strerror(err) << endl;
             exit(-1);
         }
+
+        ++request_number;
     }
 }
