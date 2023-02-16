@@ -88,7 +88,7 @@ int init_threads(Param* const params, pthread_t* const threads, double* const ar
         // при нецелом делении количества элементов во все массиве на количество потоков
         if(i == count_threads - 1)
         {
-            params[i].count_elements += array_size % count_threads;  
+            params[i].count_elements += array_size % count_threads;
         }
 
         // Создание потока
@@ -121,7 +121,7 @@ int main(int argc, char* argv[])
         exit(-1);
     }
 
-    if(array_size > count_threads)
+    if(array_size < count_threads)
     {
         count_threads = array_size;
     }

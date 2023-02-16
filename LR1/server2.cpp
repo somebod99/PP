@@ -44,6 +44,8 @@ void* request_handle(void* arg)
     shutdown(client->client_fd, SHUT_WR);
 
     delete client;
+
+    pthread_exit(NULL);
 }
 
 int main()
@@ -78,7 +80,7 @@ int main()
     while (1)
     {
         client_fd = accept(sock, (struct sockaddr *) &cli_addr, &sin_len);
-        cout << "got connection\n";
+        cout << "got connection" << request_number << '\n';
 
         if (client_fd == -1)
         {
@@ -102,5 +104,7 @@ int main()
         }
 
         ++request_number;
+
+        pthread_detach(thread);
     }
 }
