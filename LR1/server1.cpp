@@ -33,6 +33,8 @@ void* request_handle(void* arg)
     shutdown(client->client_fd, SHUT_WR);
 
     delete client;
+
+    pthread_exit(NULL);
 }
 
 int main()
@@ -73,7 +75,7 @@ int main()
     }
 
     // Устанавливаем минимальный размер стека для потока (в байтах)
-    size_t stack_size = 512 * 1024;
+    size_t stack_size = 50 * 1024 * 1024;
     error = pthread_attr_setstacksize(&attr, stack_size);
     // Если при установке размера стека произошла ошибка, выводим
     // сообщение об ошибке и прекращаем работу программы
@@ -92,7 +94,7 @@ int main()
 
     while (1)
     {
-        client_fd = accept(sock, (struct sockaddr *)&cli_addr, &sin_len);
+        client_fd = accept(sock, NULL, NULL);
         cout << "got connection : " << request_number << '\n';
 
         if (client_fd == -1)
@@ -115,5 +117,7 @@ int main()
             cerr << "Cannot create a thread: " << strerror(error) << '\n';
             exit(-1);
         }
+
+        pthread_detach(thread);
     }
 }
