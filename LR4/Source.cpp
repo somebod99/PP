@@ -184,7 +184,7 @@ void jacobiMPI(double***& grid1, int xLocalLength, int xLocalStartIndx, int lowe
     double maxLocalConverg;
 
     // Флаг, показывающий, является ли эпсилон меньше любого значения сходимости для данного процесса
-    bool isEpsilonLower;
+    bool isEpsilonLower = true;
 
     const double hx2 = pow(hx, 2);
     const double hy2 = pow(hy, 2);
@@ -287,40 +287,6 @@ void jacobiMPI(double***& grid1, int xLocalLength, int xLocalStartIndx, int lowe
             MPI_Irecv((void*)messageBufReqv_1, messageLength, MPI_DOUBLE, lowerProcRank, LOWERBOUND, MPI_COMM_WORLD, &requests[2]);
         }
 
-
-        // Если процесс обрабатывает более одного слоя
-        if (xLocalLength != 3)
-        {
-            // Вычисляем граничные значения
-            // При i = xLength - 2
-            for (int j = 1; j < Ny - 1; j++)
-            {
-                for (int k = 1; k < Nz - 1; k++)
-                {
-                    // Первая дробь в скобках
-                    currentDestPtr[xLocalLength - 2][j][k] = (currentSourcePtr[xLocalLength - 1][j][k] + currentSourcePtr[xLocalLength - 3][j][k]) / hx2;
-
-                    // Вторая дробь в скобках
-                    currentDestPtr[xLocalLength - 2][j][k] += (currentSourcePtr[xLocalLength - 2][j + 1][k] + currentSourcePtr[xLocalLength - 2][j - 1][k]) / hy2;
-
-                    // Третья дробь в скобках
-                    currentDestPtr[xLocalLength - 2][j][k] += (currentSourcePtr[xLocalLength - 2][j][k + 1] + currentSourcePtr[xLocalLength - 2][j][k - 1]) / hz2;
-
-                    // Остальная часть вычисления нового значения для данного узла
-                    currentDestPtr[xLocalLength - 2][j][k] -= rho(currentSourcePtr[xLocalLength - 2][j][k]);
-                    currentDestPtr[xLocalLength - 2][j][k] *= c;
-
-                    // Сходимость для данного узла
-                    currConverg = abs(currentDestPtr[xLocalLength - 2][j][k] - currentSourcePtr[xLocalLength - 2][j][k]);
-
-                    if (currConverg > maxLocalConverg)
-                    {
-                        maxLocalConverg = currConverg;
-                    }
-                }
-            }
-        }
-
         // Если процесс должен отправить свой крайний слой со старшим значением x (не содержит слоя с x = Nx - 1)
         if (upperProcRank != -1)
         {
@@ -337,8 +303,7 @@ void jacobiMPI(double***& grid1, int xLocalLength, int xLocalStartIndx, int lowe
             MPI_Irecv((void*)messageBufReqv_2, messageLength, MPI_DOUBLE, upperProcRank, UPPERBOUND, MPI_COMM_WORLD, &requests[3]);
         }
 
-
-        for (int i = 2; i < xLocalLength - 2; i++)
+        for (int i = 2; i < xLocalLength - 1; i++)
         {
             for (int j = 1; j < Ny - 1; j++)
             {
@@ -369,11 +334,7 @@ void jacobiMPI(double***& grid1, int xLocalLength, int xLocalStartIndx, int lowe
             }
         }
 
-        if (accuracy < maxLocalConverg)
-        {
-            isEpsilonLower = true;
-        }
-        else
+        if (maxLocalConverg < accuracy)
         {
             isEpsilonLower = false;
         }
